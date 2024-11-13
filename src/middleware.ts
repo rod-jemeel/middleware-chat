@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 
 export async function middleware(request: NextRequest) {
-  const cookieStore = cookies(request)
+  const cookieStore = cookies()
   const chatCookie = await cookieStore.get('chat')?.value
 
   // Log the existing chat cookie
