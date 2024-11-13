@@ -1,4 +1,4 @@
-// route.ts
+// src/app/api/chat/route.ts
 import OpenAI from 'openai'
 import { OpenAIStream, StreamingTextResponse } from 'ai'
 

@@ -1,4 +1,3 @@
-// chat.tsx
 'use client'
 
 import { Input } from "@/components/ui/input"
@@ -17,10 +16,9 @@ export function Chat() {
     onError: (e) => {
       console.log(e)
     }
-  }) as { messages: MessageWithTimestamp[]; input: string; handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void; handleSubmit: () => void };
+  }) as { messages: MessageWithTimestamp[]; input: string; handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void; handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void };
 
   const chatParent = useRef<HTMLUListElement>(null);
-  const [chatCookie, setChatCookie] = useState<string | null>(null);
   const [savedMessages, setSavedMessages] = useState<MessageWithTimestamp[]>([]);
 
   useEffect(() => {
@@ -29,35 +27,44 @@ export function Chat() {
       domNode.scrollTop = domNode.scrollHeight;
     }
 
-    // Get the chat cookie
-    const cookie = getCookie('chat');
-    setChatCookie(cookie || null);
-
-    if (cookie) {
-      const parsedMessages = JSON.parse(cookie).messages;
-      setSavedMessages(parsedMessages);
-    }
+    // Fetch the chat cookie
+    fetch('/api/get-cookie?name=chat')
+      .then(response => response.json())
+      .then(data => {
+        if (data.value) {
+          const parsedMessages = JSON.parse(data.value).messages;
+          setSavedMessages(parsedMessages);
+        } else {
+          setSavedMessages([]);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching chat cookie:', error);
+        setSavedMessages([]);
+      });
   }, []);
 
   useEffect(() => {
+    console.log('Messages:', messages);
     if (messages.length > 0) {
-      // Add a timestamp to each message if it doesn't already have one
-      const messagesWithTimestamps = messages.map((message) => {
-        if (!message.timestamp) {
-          message.timestamp = new Date().toISOString();
-        }
-        return message;
-      });
-
-      // Save messages to cookie
-      document.cookie = `chat=${JSON.stringify({ messages: messagesWithTimestamps })}; path=/;`;
+      // Set the chat cookie
+      fetch('/api/set-cookie', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: 'chat', value: JSON.stringify({ messages }) }),
+      })
+        .then(response => response.json())
+        .then(data => console.log(data))
+        .catch(error => console.error('Error setting chat cookie:', error));
     }
   }, [messages]);
 
-  // Helper function to format timestamp (you can customize this)
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    console.log('Submitting message:', input);
+    handleSubmit(e);
   };
 
   return (
@@ -68,28 +75,18 @@ export function Chat() {
 
       <section className="container px-0 pb-10 flex flex-col flex-grow gap-4 mx-auto max-w-3xl">
         <ul ref={chatParent} className="h-1 p-4 flex-grow bg-muted/50 rounded-lg overflow-y-auto flex flex-col gap-4">
-          {savedMessages.map((m, index) => (
+          {[...savedMessages, ...messages].map((m, index) => (
             <div key={index}>
               {m.role === 'user' ? (
                 <li key={m.id} className="flex flex-row">
                   <div className="rounded-xl p-4 bg-background shadow-md flex">
                     <p className="text-primary">{m.content}</p>
-                    {m.timestamp && (
-                      <span className="text-xs text-gray-500 ml-2">
-                        {formatTimestamp(m.timestamp)}
-                      </span>
-                    )}
                   </div>
                 </li>
               ) : (
                 <li key={m.id} className="flex flex-row-reverse">
                   <div className="rounded-xl p-4 bg-background shadow-md flex w-3/4">
                     <p className="text-primary">{m.content}</p>
-                    {m.timestamp && (
-                      <span className="text-xs text-gray-500 ml-2">
-                        {formatTimestamp(m.timestamp)}
-                      </span>
-                    )}
                   </div>
                 </li>
               )}
@@ -99,7 +96,7 @@ export function Chat() {
       </section>
 
       <section className="p-4">
-        <form onSubmit={handleSubmit} className="flex w-full max-w-3xl mx-auto items-center">
+        <form onSubmit={handleFormSubmit} className="flex w-full max-w-3xl mx-auto items-center">
           <Input className="flex-1 min-h-[40px]" placeholder="Type your question here..." type="text" value={input} onChange={handleInputChange} />
           <Button className="ml-2" type="submit">
             Submit
@@ -108,10 +105,4 @@ export function Chat() {
       </section>
     </main>
   );
-}
-
-function getCookie(name: string) {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(';').shift();
 }

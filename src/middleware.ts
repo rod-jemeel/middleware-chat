@@ -1,41 +1,35 @@
 // middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { cookies } from 'next/headers'
 
-export function middleware(request: NextRequest) {
-  const chatCookie = request.cookies.get('chat')?.value
+export async function middleware(request: NextRequest) {
+  const cookieStore = cookies(request)
+  const chatCookie = await cookieStore.get('chat')?.value
 
+  // Log the existing chat cookie
+  console.log('Existing chat cookie:', chatCookie)
+
+  // If the chat cookie does not exist, set a new one
   if (!chatCookie) {
     const response = NextResponse.next()
-    response.cookies.set('chat', JSON.stringify({ messages: [] }), {
+    const newCookieValue = JSON.stringify({ messages: [] })
+    console.log('Setting new chat cookie:', newCookieValue)
+    response.cookies.set('chat', newCookieValue, {
       httpOnly: true,
       path: '/',
     })
     return response
   }
 
-  // Parse the existing messages
-  const parsedCookie = JSON.parse(chatCookie)
-  const messages = parsedCookie.messages || []
-
-  // Add a timestamp to each message if it doesn't already have one
-  const updatedMessages = messages.map((message: any) => {
-    if (!message.timestamp) {
-      message.timestamp = new Date().toISOString()
-    }
-    return message
-  })
-
-  // Update the cookie with the messages including timestamps
+  // Log the response headers
   const response = NextResponse.next()
-  response.cookies.set('chat', JSON.stringify({ messages: updatedMessages }), {
-    httpOnly: true,
-    path: '/',
-  })
+  console.log('Response headers:', response.headers)
 
   return response
 }
 
+// Match all API routes
 export const config = {
   matcher: '/api/:path*',
 }
